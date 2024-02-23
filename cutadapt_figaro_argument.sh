@@ -99,11 +99,9 @@ then
         mkdir -p "$fastq_no_primer"
     fi
     
-    for file_R1 in $fastq_dir/*R1*.fastq.gz
+    for file_R1 in $fastq_dir/*_R1*.fastq.gz
     do
         #Find file R2 associated with R1 (with file name)
-        file_name=$(basename "$file_R1")
-        sample_name="${file_name%_R*}"
         file_R2=$(echo "$file_R1" | sed 's/_R1/_R2/g')
         echo "---------File $file_R1 associated with file $file_R2 being processed..."
     
