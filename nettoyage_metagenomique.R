@@ -113,7 +113,7 @@ print(fns_R1)
 print("fns_R2")
 print(fns_R2)
 
-# extract samples names (format : NOMECHAN_XXX.fastq)
+# extract samples names (format : NAMESAMPLE_XXX.fastq)
 # pattern in files name to separate samples
 sample.names <- str_split(basename(fns_R1), pattern = opt$pattern_samples, simplify = TRUE)
 print("sample.names")
@@ -147,34 +147,51 @@ if (opt$type_data=="16S") {
   print("------------filterAndTrim function for 16S gene------------")
   print("out <- filterAndTrim(fns_R1, filt_R1, fns_R2, filt_R2, truncLen=trim_parameters, maxN=0, maxEE=c(2,5), truncQ=2, rm.phix=TRUE, compress=FALSE)")
 }else{
-  #truncLens <- c(290, 260, 240, 220)
-  #best_truncLen <- NULL
-  #best_nb_reads <- 0
-  #best_result <- NULL
-  truncLen <- c(220, 200)
-  
-  #for (tl in truncLens){
-      #print(tl)
-      #print(tl-20)
-      #out <- filterAndTrim(fns_R1, filt_R1, fns_R2, filt_R2, truncLen=c(tl, tl-20), maxN=0, maxEE=maxEE, truncQ=2, rm.phix=TRUE, compress=FALSE)
-      #print(out)
-      #num_reads <- sum(out[, "reads.out"])
-      #print(num_reads)
-      #if (num_reads > best_nb_reads){
-        #best_nb_reads <- num_reads
-        #best_truncLen <- tl
-        #best_result <- out
-      #}
-    #}
-  #print("Best truncLen : ")
-  #print(best_truncLen)
-  #print(best_truncLen - 20)
-  #truncLen <- c(best_truncLen, best_truncLen-20)
-  #out <- filterAndTrim(fns_R1, filt_R1, fns_R2, filt_R2, truncLen=c(best_truncLen, best_truncLen-20), maxN=0, maxEE=maxEE, truncQ=2, rm.phix=TRUE, compress=FALSE)
-  out <- filterAndTrim(fns_R1, filt_R1, fns_R2, filt_R2, truncLen=c(220, 200), maxN=0, maxEE=maxEE, truncQ=2, rm.phix=TRUE, compress=FALSE)
-  
-  }
-#head(out)
+  truncLens <- c(290, 260, 240, 220)
+  best_truncLen <- NULL
+  best_nb_reads <- 0
+  best_result <- NULL
+
+  getN <- function(x) sum(getUniques(x))
+
+  for (tl in truncLens){
+      print(tl)
+      for (offset in c(-20, -40, -60)) {
+          print(tl + offset)
+          out <- filterAndTrim(fns_R1, filt_R1, fns_R2, filt_R2, truncLen=c(tl, tl + offset), maxN=0, maxEE=maxEE, truncQ=2, rm.phix=TRUE, compress=FALSE)
+          print(out)
+          
+          err_R1 <- learnErrors(filt_R1, multithread=TRUE)
+          err_R2 <- learnErrors(filt_R2, multithread=TRUE)
+          
+          # statistic analyse
+          dada_R1 <- dada(filt_R1, err = err_R1, multithread = FALSE, pool = FALSE)
+          dada_R2 <- dada(filt_R2, err = err_R2, multithread = FALSE, pool = FALSE)
+          print("sapply(dada_R1, getN)")
+          filtered <- sapply(dada_R1, getN)
+          print("filtered")
+          print(filtered)
+          
+          # merge forward and reverse
+          mergers <- mergePairs(dada_R1, filt_R1, dada_R2, filt_R2, verbose = TRUE)
+          print("sapply(mergers, getN)")
+          merged <- sapply(mergers, getN)
+          print("merged")
+          print(merged)
+          
+          # check if this truncLen combination has more merged reads than the previous best one
+          if (sum(merged) > best_nb_reads) {
+              best_nb_reads <- sum(merged)
+              best_truncLen <- c(tl, tl + offset)
+          }
+      }
+    }
+  print("Best truncLen combination :")
+  print(best_truncLen)
+  out <- filterAndTrim(fns_R1, filt_R1, fns_R2, filt_R2, truncLen=best_truncLen, maxN=0, maxEE=maxEE, truncQ=2, rm.phix=TRUE, compress=FALSE)
+}
+
+print("------------Custering------------")
 
 err_R1 <- learnErrors(filt_R1, multithread=TRUE)
 err_R2 <- learnErrors(filt_R2, multithread=TRUE)
@@ -329,7 +346,7 @@ write_csv(as_tibble(asv), file = str_c(dada2_dir, "asv.csv"))
 print("creation output file with parameters")
 fichier_temp <- paste0(opt$output, "output_parameters.txt")
 contenu <- readLines(fichier_temp)
-contenu <- c(contenu, "truncLen : ", truncLen, paste("maxEE : 2,5", "\n"), paste("Type of data for analysis : ", opt$type_data, "\n"), paste("Database used : ", db, "\n"), paste("Primer were already been removed ? ", opt$primer))
+contenu <- c(contenu, "truncLen : ", best_truncLen, paste("maxEE : 2,5", "\n"), paste("Type of data for analysis : ", opt$type_data, "\n"), paste("Database used : ", db, "\n"), paste("Primer were already been removed ? ", opt$primer))
 writeLines(contenu, paste0(opt$output, "output_parameters.txt"))
 
 
