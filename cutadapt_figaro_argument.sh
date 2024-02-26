@@ -7,11 +7,13 @@ figaro_dir=$3
 fastq_no_primer=$4
 type_data=$5
 primer_removed=$6
+output_path=$7 #must be the same as the path given to the script nettoyage_metagenomique.R
 
 # Parameters for cutadapt mean
 min_mean=999999
 
 # Parameters for figaro
+figaro_dir="/Users/ambre/figaro/figaro/"
 amplicon_length=440
 forward_primer_length=17
 reverse_primer_length=21
@@ -22,11 +24,6 @@ forward_primer_16S="CCTACGGGNGGCWGCAG"
 reverse_primer_16S="GACTACHVGGGTATCTAATCC"
 forward_primer_18S="TGCGGCTTAATTYGACTCAAC"
 reverse_primer_18S="GCATCACAGAYCTGTT"
-
-# Extract the path of the directory given as parameter
-#output_path=$(dirname "$(dirname "$fastq_dir")")
-output_path=$(dirname "$fastq_dir")
-echo output_path
 
 ####CUTADAPT####
 # The aim is to cut all sequences to the same length
@@ -81,9 +78,7 @@ then
 ####FIGARO####
 # The aim is to have the parameters form filterAndTrim() function
 
-    python3 /Users/ambre/figaro/figaro/figaro.py -i $cutadapt_dir -o $figaro_dir -a $amplicon_length -f $forward_primer_length -r $reverse_primer_length
-    #python3 figaro.py -i $cutadapt_dir -o $figaro_dir -a $amplicon_length -f $forward_primer_length -r $reverse_primer_length
-
+    python3 $figaro_dir/figaro.py -i $cutadapt_dir -o $figaro_dir -a $amplicon_length -f $forward_primer_length -r $reverse_primer_length
 fi
 
 
