@@ -35,8 +35,6 @@ option_list <- list(
                 help="type of data that you analyse (16S or 18S)"),
     make_option(c("-o", "--output"), dest="output", default="None",
         help="path to output directory [MANDATORY]"),
-    #make_option(c("-d", "--database"), dest="database", default="None",
-                #help="path to database directory for taxonomic assignment [MANDATORY]"),
     make_option("--type_database", dest="type_database",
                 help="type of database used for taxonomic assignment"),
     make_option(c("-j", "--json"), dest="json_file", default="None",
@@ -275,7 +273,6 @@ if(opt$type_data == "16S"){
     str(taxa$boot)
     class(taxa$boot)
     taxa_boot <- taxa$boot
-    #colnames(taxa$boot) <- c("Kingdom_boot", "Phylum_boot", "Class_boot", "Order_boot", "Family_boot", "Genus_boot", "Species_boot")
     taxa_boot <- as.data.frame(taxa$boot) %>% rename_all(~str_c(., "_boot"))
     seqtab.nochim_trans <- taxa_tax %>% bind_cols(taxa_boot) %>% bind_cols(seqtab.nochim_trans)
   }else{
