@@ -158,32 +158,39 @@ if (opt$type_data=="16S") {
       print(tl)
       for (offset in c(-20, -40, -60)) {
           print(tl + offset)
-          out <- filterAndTrim(fns_R1, filt_R1, fns_R2, filt_R2, truncLen=c(tl, tl + offset), maxN=0, maxEE=maxEE, truncQ=2, rm.phix=TRUE, compress=FALSE)
-          print(out)
+          tryCatch({
+              out <- filterAndTrim(fns_R1, filt_R1, fns_R2, filt_R2, truncLen=c(tl, tl + offset), maxN=0, maxEE=maxEE, truncQ=2, rm.phix=TRUE, compress=FALSE)
+              print(out)
           
-          err_R1 <- learnErrors(filt_R1, multithread=TRUE)
-          err_R2 <- learnErrors(filt_R2, multithread=TRUE)
+              err_R1 <- learnErrors(filt_R1, multithread=TRUE)
+              err_R2 <- learnErrors(filt_R2, multithread=TRUE)
           
-          # statistic analyse
-          dada_R1 <- dada(filt_R1, err = err_R1, multithread = FALSE, pool = FALSE)
-          dada_R2 <- dada(filt_R2, err = err_R2, multithread = FALSE, pool = FALSE)
-          print("sapply(dada_R1, getN)")
-          filtered <- sapply(dada_R1, getN)
-          print("filtered")
-          print(filtered)
+              # statistic analyse
+              dada_R1 <- dada(filt_R1, err = err_R1, multithread = FALSE, pool = FALSE)
+              dada_R2 <- dada(filt_R2, err = err_R2, multithread = FALSE, pool = FALSE)
+              print("sapply(dada_R1, getN)")
+              filtered <- sapply(dada_R1, getN)
+              print("filtered")
+              print(filtered)
           
-          # merge forward and reverse
-          mergers <- mergePairs(dada_R1, filt_R1, dada_R2, filt_R2, verbose = TRUE)
-          print("sapply(mergers, getN)")
-          merged <- sapply(mergers, getN)
-          print("merged")
-          print(merged)
+              # merge forward and reverse
+              mergers <- mergePairs(dada_R1, filt_R1, dada_R2, filt_R2, verbose = TRUE)
+              print("sapply(mergers, getN)")
+              merged <- sapply(mergers, getN)
+              print("merged")
+              print(merged)
           
-          # check if this truncLen combination has more merged reads than the previous best one
-          if (sum(merged) > best_nb_reads) {
-              best_nb_reads <- sum(merged)
-              best_truncLen <- c(tl, tl + offset)
-          }
+              # check if this truncLen combination has more merged reads than the previous best one
+              if (sum(merged) > best_nb_reads) {
+                  best_nb_reads <- sum(merged)
+                  best_truncLen <- c(tl, tl + offset)
+              }
+          }, error = function(e) {  #allows to not stop the program if the length of the reads is smaller than the truncLen threshold
+              if (grepl("Not all provided files exist", conditionMessage(e))) {
+                  cat("Some input samples had no reads pass the filter.", tl, "+", offset, ". Next combination.\n")
+              }else{
+                  cat("Error encountered while processing the combination", tl, "+", offset, ":", conditionMessage(e), "\n")}
+            })
       }
     }
   print("Best truncLen combination :")
