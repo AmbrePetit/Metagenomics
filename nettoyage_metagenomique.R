@@ -35,7 +35,7 @@ option_list <- list(
                 help="type of data that you analyse (16S or 18S)"),
     make_option(c("-o", "--output"), dest="output", default="None",
         help="path to output directory [MANDATORY]"),
-    make_option("--type_database", dest="type_database",
+    make_option("--type_database", dest="type_database", default="Silva",
                 help="type of database used for taxonomic assignment"),
     make_option(c("-j", "--json"), dest="json_file", default="None",
                 help="path to json file directory, output from Figaro"),
