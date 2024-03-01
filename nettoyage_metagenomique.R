@@ -43,7 +43,7 @@ option_list <- list(
         help="Pattern in fastq files name to identify R1"),
     make_option("--pattern_R2", dest="opt_fns_R2", default="_R2",
         help="Pattern in fastq files name to identify R2"),
-    make_option("--pattern_samples", dest="pattern_samples", default="_S"),
+    make_option("--pattern_samples", dest="pattern_samples", default="_R"),
     make_option(c("-p", "--primer"), dest="primer", help="have the primers already been removed ? 'true' or 'false' expected")
  )
 
@@ -66,6 +66,7 @@ if (opt$type_data=="16S") {
 # assign all output dir variables
 # 1st check if path ends with a "/"
 if(substrRight(opt$output, 1) != '/'){opt$output <- paste(opt$output, "/", sep="")}
+if(substrRight(opt$json_file, 1) != '/'){opt$json_file <- paste(opt$json_file, "/", sep="")}
 
 # check output
 print("opt$output")
@@ -86,7 +87,7 @@ Silva_file <- paste0(database_dir, "silva_nr99_v138.1_train_set.fa")
     if(opt$type_database == "PR2"){
       PR2_file <- paste0(database_dir, "pr2_version_5.0.0_SSU_dada2.fasta.gz")
     }else{
-      Silva_file <- paste0(database_dir, "silva_nr99_v138.1_train_set.fa")}
+      Silva_file <- paste0(database_dir, "silva_nr_v138_train_set.fa")}
   }
 }
 
@@ -143,7 +144,7 @@ if (opt$type_data=="16S") {
   print(trim_first_parameters)
   print(trim_second_parameters)
   out <- filterAndTrim(fns_R1, filt_R1, fns_R2, filt_R2, truncLen=c(trim_first_parameters,trim_second_parameters), maxN=0, maxEE=maxEE, truncQ=2, rm.phix=TRUE, compress=FALSE)
-  truncLen <- c(trim_first_parameters,trim_second_parameters)
+  best_truncLen <- c(trim_first_parameters,trim_second_parameters)
   print("------------filterAndTrim function for 16S gene------------")
   print("out <- filterAndTrim(fns_R1, filt_R1, fns_R2, filt_R2, truncLen=trim_parameters, maxN=0, maxEE=c(2,5), truncQ=2, rm.phix=TRUE, compress=FALSE)")
 }else{
@@ -329,11 +330,9 @@ Biostrings::writeXStringSet(seq_out, str_c(dada2_dir, "asv.fasta"), compress = F
 
 # creation csv for phyloseq
 print("Creation csv for phyloseq")
-if(opt$type_data == "16S"){i<-6 ; j<-9    #if there is species, do : i <- 7 and j<- 10
-}else{
-  if(opt$type_database == "PR2"){i<-9 ; j<-20  #if you use an old version of PR2 when there is only 8 levels, remove 1 from i and j
-  }else{i<-6 ; j<-9}
-}
+if(opt$type_database == "PR2"){
+    i<-9 ; j<-20     #if you're using an old version of PR2 where there are only 8 levels, remove 1 from i and j
+}else{i<-6 ; j<-14}  #if there are species, change to : i <- 7 and j<- 15
 
 # creation taxo file
 print("creation taxo file")
