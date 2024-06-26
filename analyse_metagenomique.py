@@ -352,6 +352,7 @@ def statistical_test_beta(df_counts, beta_diversity): # Function to perform a st
     
 def beta_diversity_graph(beta_diversity, condition, asv_info): # Function to create beta diversity visualizations
     beta_representation = input("Which beta diversity representation would you like ? (heatmap / NMDS / NMDS_condition / PCoA / PCoA_condition): ")
+    
     if beta_representation == 'heatmap': # Create a heatmap representation of beta diversity
         plt.figure(figsize=(10, 8))
         sns.heatmap(beta_diversity.to_data_frame(), cmap="rainbow_r", annot=True, fmt=".2f", linewidths=.5)
@@ -634,20 +635,16 @@ def barplot_one_sample(database): # Function to create a bar plot of taxonomic c
     taxo_sum[sample] = taxo_sum[sample].astype(float) # Convert count values to float
     taxo_proportions = taxo_sum / taxo_sum.sum() # Calculate proportions of each taxonomic category
 
-    top_20_taxa = taxo_proportions.apply(lambda x: x.nlargest(20), axis=0)
-    other_taxa = 1 - top_20_taxa.sum(axis=0) # Calculation of the sum of the proportions of the remaining categories for each sample
-    top_20_taxa.loc['Others'] = other_taxa.values # Addition of the 'Others' line with the proportions of the 'Others' category for each sample
+    # Selection of the x top most represented categories :
+    nb_taxa = int(input("How many taxa do you want to display ? "))
+    top_x_taxa = taxo_proportions.apply(lambda x: x.nlargest(nb_taxa), axis=0) # Keep the first x categories
+    other_taxa = 1 - top_x_taxa.sum(axis=0) # Calculation of the sum of the proportions of the remaining categories for each sample
+    top_x_taxa.loc['Others'] = other_taxa.values # Addition of the 'Others' line with the proportions of the 'Others' category for each sample
     
-    # Merge taxonomic categories with proportions less than 0.001 into an "Others" category
-    #taxo_others = taxo_proportions[taxo_proportions[sample] < 0.001]
-    #proportion_others = taxo_others.sum()
-    #taxo_proportions_without_others = taxo_proportions[taxo_proportions[sample] >= 0.001]
-    #taxo_proportions_finals = pd.concat([taxo_proportions_without_others, pd.DataFrame([proportion_others], index=['Autres'], columns=[sample])])
-
     # Bar plot of taxonomic proportions
     plt.figure(figsize=(10, 6))
     #taxo_proportions_finals[sample].sort_values(ascending=False).plot(kind='bar')
-    top_20_taxa[sample].sort_values(ascending=False).plot(kind='bar')
+    top_x_taxa[sample].sort_values(ascending=False).plot(kind='bar')
     plt.xlabel(taxo_level)
     plt.ylabel('Proportion')
     plt.title(f'Proportion of {taxo_level} taxonomic category in sample {sample}')
@@ -671,16 +668,17 @@ def barplot_all_samples(database): # Function to create a bar plot of taxonomic 
     taxo_sum = taxo_count.groupby(taxo_level).sum() # Group by taxonomic level and sum counts
     taxo_proportions = taxo_sum.div(taxo_sum.sum(axis=0), axis=1) # Calculate proportions of each taxonomic category for each sample
     
-    # Selection of the 20 most represented categories for each sample :
-    top_20_taxa = taxo_proportions.apply(lambda x: x.nlargest(20), axis=0)
-    other_taxa = 1 - top_20_taxa.sum(axis=0) # Calculation of the sum of the proportions of the remaining categories for each sample
-    top_20_taxa.loc['Others'] = other_taxa.values # Addition of the 'Others' line with the proportions of the 'Others' category for each sample
-    top_20_taxa_transpose = top_20_taxa.transpose() # Transposition to have samples in rows and categories in columns
+    # Selection of the x most represented categories for each sample :
+    nb_taxa = int(input("How many taxa do you want to display ? "))
+    top_x_taxa = taxo_proportions.apply(lambda x: x.nlargest(nb_taxa), axis=0) # Keep the first x categories
+    other_taxa = 1 - top_x_taxa.sum(axis=0) # Calculation of the sum of the proportions of the remaining categories for each sample
+    top_x_taxa.loc['Others'] = other_taxa.values # Addition of the 'Others' line with the proportions of the 'Others' category for each sample
+    top_x_taxa_transpose = top_x_taxa.transpose() # Transposition to have samples in rows and categories in columns
+    print(top_x_taxa_transpose)
         
     # Bar plot of taxonomic proportions for all samples
     fig, ax = plt.subplots(figsize=(18, 12))
-    top_20_taxa_transpose.plot(kind='bar', stacked=True, colormap='rainbow', ax=ax)
-    #taxo_proportions_transpose.plot(kind='bar', stacked=True, colormap='rainbow', ax=ax)
+    top_x_taxa_transpose.plot(kind='bar', stacked=True, colormap='rainbow', ax=ax)
     plt.xlabel('Samples')
     plt.ylabel('Abundance')
     plt.title(f'Abundance of taxonomic category {taxo_level} for all samples')
@@ -706,9 +704,9 @@ def barplot_all_samples_condition(database, condition, asv_info):
     
     conditions=one_condition_struct(asv_info, condition) # Get the list of samples associated with the condition
     
-    plot_level = input("Do you want a merged chart with all conditions or separate charts for each condition ? plots / merged_plots / separate_plots ")
+    plot_level = input("Do you want a merged chart with all conditions (merged) or separate charts for each condition (separate_plots) or chart with average proportion for each categories (total_abundance) ?")
     
-    if plot_level == 'plots':
+    if plot_level == 'total_abundance':
         # Initialize a dictionary to store summed abundances for each condition
         condition_abundances = {cond: 0 for cond in conditions}
         
@@ -731,15 +729,16 @@ def barplot_all_samples_condition(database, condition, asv_info):
 
         color_map = sns.color_palette("tab20", len(all_taxons))
         
+        nb_taxa = int(input("How many taxa do you want to display ? "))
         for i, (condition_name, taxon_abundances) in enumerate(condition_abundances.items()):
-            top_20_taxa = taxon_abundances.sort_values(ascending=False)[:20]
-            other_taxa = 1 - top_20_taxa.sum(axis=0)
-            top_20_taxa.loc['Others'] = other_taxa # Addition of the 'Others' line with the proportions of the 'Others' category for each condition
+            top_x_taxa = taxon_abundances.sort_values(ascending=False)[:nb_taxa] # Keep the first x categories
+            other_taxa = 1 - top_x_taxa.sum(axis=0)
+            top_x_taxa.loc['Others'] = other_taxa # Addition of the 'Others' line with the proportions of the 'Others' category for each condition
             
             # Initialize y_offset to keep track of the vertical position of the next bar
             y_offset = 0
-            for j, (taxon, abundance) in enumerate(top_20_taxa.items()):
-                if taxon in top_20_taxa:
+            for j, (taxon, abundance) in enumerate(top_x_taxa.items()):
+                if taxon in top_x_taxa:
                     if taxon != 'Others':
                         color = color_map[j] # Assign color based on taxon
                     else:
@@ -780,15 +779,16 @@ def barplot_all_samples_condition(database, condition, asv_info):
             taxo_sum = taxo_count.groupby(taxo_level).sum()
             taxo_proportions = taxo_sum.div(taxo_sum.sum(axis=0), axis=1)
             
-            # Select top 20 taxonomic categories
-            top_20_taxa = taxo_proportions.sum(axis=1).nlargest(20)
+            # Select top x taxonomic categories
+            nb_taxa = int(input("How many taxa do you want to display ? "))
+            top_x_taxa = taxo_proportions.sum(axis=1).nlargest(nb_taxa)
             taxo_proportions = taxo_proportions.transpose() # Transposition pour avoir les échantillons en lignes et les catégories en colonnes
-            top_20_taxa = taxo_proportions[top_20_taxa.index]
-            other_taxa = 1 - top_20_taxa.sum(axis=1) # Calcul de la somme des proportions des catégories restantes pour chaque échantillon
-            top_20_taxa['Others'] = other_taxa.values # Ajout de la ligne 'Others' avec les proportions de la catégorie 'Others' pour chaque échantillon
+            top_x_taxa = taxo_proportions[top_x_taxa.index]
+            other_taxa = 1 - top_x_taxa.sum(axis=1) # Calcul de la somme des proportions des catégories restantes pour chaque échantillon
+            top_x_taxa['Others'] = other_taxa.values # Ajout de la ligne 'Others' avec les proportions de la catégorie 'Others' pour chaque échantillon
                         
             # Associate one unique color to each taxa
-            for taxon in top_20_taxa.columns:
+            for taxon in top_x_taxa.columns:
                 if taxon not in taxon_colors:
                 # Générer une couleur aléatoire unique pour chaque taxon
                     color = "#{:06x}".format(random.randint(0, 0xFFFFFF))
@@ -800,7 +800,7 @@ def barplot_all_samples_condition(database, condition, asv_info):
             
             # Plot the barplot for the current condition
             ax = axs[i]
-            top_20_taxa.plot(kind='bar', stacked=True, color=[taxon_colors[taxon] for taxon in top_20_taxa.columns], ax=ax, label=condition, legend=None)
+            top_x_taxa.plot(kind='bar', stacked=True, color=[taxon_colors[taxon] for taxon in top_20_taxa.columns], ax=ax, label=condition, legend=None)
             plt.xlabel('Samples')
             plt.ylabel('Abundance')
             plt.title(condition)
@@ -838,17 +838,18 @@ def barplot_all_samples_condition(database, condition, asv_info):
             taxo_sum = taxo_count.groupby(taxo_level).sum()
             taxo_proportions = taxo_sum.div(taxo_sum.sum(axis=0), axis=1)
             
-            # Select top 20 taxonomic categories
-            top_20_taxa = taxo_proportions.sum(axis=1).nlargest(20)
+            # Select top x taxonomic categories
+            nb_taxa = int(input("How many taxa do you want to display ? "))
+            top_x_taxa = taxo_proportions.sum(axis=1).nlargest(nb_taxa)
             taxo_proportions = taxo_proportions.transpose() # Transposition to have samples in rows and categories in columns
-            top_20_taxa = taxo_proportions[top_20_taxa.index]
-            other_taxa = 1 - top_20_taxa.sum(axis=1) # Calculation of the sum of the proportions of the remaining categories for each sample
-            top_20_taxa['Others'] = other_taxa.values # Addition of the 'Others' line with the proportions of the 'Others' category for each sample
+            top_x_taxa = taxo_proportions[top_x_taxa.index]
+            other_taxa = 1 - top_x_taxa.sum(axis=1) # Calculation of the sum of the proportions of the remaining categories for each sample
+            top_x_taxa['Others'] = other_taxa.values # Addition of the 'Others' line with the proportions of the 'Others' category for each sample
     
             # Plot the barplot for the current condition on the corresponding subplot
             colors = plt.cm.rainbow(range(len(top_20_taxa.columns))) # Generate unique colors for each taxon
             print(colors)
-            top_20_taxa.plot(kind='bar', stacked=True, color=colors, ax=axes[i], label=condition, legend=None)
+            top_x_taxa.plot(kind='bar', stacked=True, color=colors, ax=axes[i], label=condition, legend=None)
             
             # Get legend handles and labels for each subplot
             handles, labels = axes[i].get_legend_handles_labels()
@@ -861,11 +862,11 @@ def barplot_all_samples_condition(database, condition, asv_info):
             axes[i].set_xlabel('Samples')
             
         # Store the taxon-color correspondence for this subplot
-            for j, taxon in enumerate(top_20_taxa.columns):
+            for j, taxon in enumerate(top_x_taxa.columns):
                 if taxon not in taxon_colors:
                     taxon_colors[taxon] = colors[j]
                     
-            top_20_taxa.plot(kind='bar', stacked=True, color=taxon_colors, ax=axes[i], label=condition)
+            top_x_taxa.plot(kind='bar', stacked=True, color=taxon_colors, ax=axes[i], label=condition)
 
         
         print(taxon_colors)
@@ -893,16 +894,17 @@ def barplot_all_samples_condition(database, condition, asv_info):
             taxo_sum = taxo_count.groupby(taxo_level).sum()
             taxo_proportions = taxo_sum.div(taxo_sum.sum(axis=0), axis=1)
 
-            # Select top 20 taxonomic categories
-            top_20_taxa = taxo_proportions.sum(axis=1).nlargest(20)
+            # Select top x taxonomic categories
+            nb_taxa = int(input("How many taxa do you want to display ? "))
+            top_x_taxa = taxo_proportions.sum(axis=1).nlargest(nb_taxa)
             taxo_proportions = taxo_proportions.transpose() # Transposition to have samples in rows and categories in columns
-            top_20_taxa = taxo_proportions[top_20_taxa.index]
-            other_taxa = 1 - top_20_taxa.sum(axis=1) # Calculation of the sum of the proportions of the remaining categories for each sample
-            top_20_taxa['Others'] = other_taxa.values # Addition of the 'Others' line with the proportions of the 'Others' category for each sample
+            top_x_taxa = taxo_proportions[top_x_taxa.index]
+            other_taxa = 1 - top_x_taxa.sum(axis=1) # Calculation of the sum of the proportions of the remaining categories for each sample
+            top_x_taxa['Others'] = other_taxa.values # Addition of the 'Others' line with the proportions of the 'Others' category for each sample
 
             # Plot the barplot for the current condition
             fig, ax = plt.subplots(figsize=(18, 12))
-            top_20_taxa.plot(kind='bar', stacked=True, colormap='rainbow', ax=ax, label=condition)
+            top_x_taxa.plot(kind='bar', stacked=True, colormap='rainbow', ax=ax, label=condition)
             plt.xlabel('Samples')
             plt.ylabel('Abundance')
             plt.title(f'Abundance of taxonomic category {taxo_level} for condition: {condition}')
@@ -954,15 +956,16 @@ def barplot_all_samples_two_conditions(database, condition, asv_info):
 
         color_map = sns.color_palette("tab20", len(all_taxons))
         
+        nb_taxa = int(input("How many taxa do you want to display ? "))
         for i, (condition_name, taxon_abundances) in enumerate(condition_abundances.items()):
-            top_20_taxa = taxon_abundances.sort_values(ascending=False)[:20]
-            other_taxa = 1 - top_20_taxa.sum(axis=0)
-            top_20_taxa.loc['Others'] = other_taxa # Addition of the 'Others' line with the proportions of the 'Others' category for each condition
+            top_x_taxa = taxon_abundances.sort_values(ascending=False)[:nb_taxa]
+            other_taxa = 1 - top_x_taxa.sum(axis=0)
+            top_x_taxa.loc['Others'] = other_taxa # Addition of the 'Others' line with the proportions of the 'Others' category for each condition
             
             # Initialize y_offset to keep track of the vertical position of the next bar
             y_offset = 0
             for j, (taxon, abundance) in enumerate(top_20_taxa.items()):
-                if taxon in top_20_taxa:
+                if taxon in top_x_taxa:
                     if taxon != 'Others':
                         color = color_map[j] # Assign color based on taxon
                     else:
@@ -999,16 +1002,17 @@ def barplot_all_samples_two_conditions(database, condition, asv_info):
             taxo_sum = taxo_count.groupby(taxo_level).sum()
             taxo_proportions = taxo_sum.div(taxo_sum.sum(axis=0), axis=1)
 
-            # Select top 20 taxonomic categories
-            top_20_taxa = taxo_proportions.sum(axis=1).nlargest(20)
+            # Select top x taxonomic categories
+            nb_taxa = int(input("How many taxa do you want to display ? "))
+            top_x_taxa = taxo_proportions.sum(axis=1).nlargest(nb_taxa)
             taxo_proportions = taxo_proportions.transpose() # Transposition to have samples in rows and categories in columns
-            top_20_taxa = taxo_proportions[top_20_taxa.index]
-            other_taxa = 1 - top_20_taxa.sum(axis=1) # Calculation of the sum of the proportions of the remaining categories for each sample
-            top_20_taxa['Others'] = other_taxa.values # Addition of the 'Others' line with the proportions of the 'Others' category for each sample
+            top_x_taxa = taxo_proportions[top_x_taxa.index]
+            other_taxa = 1 - top_x_taxa.sum(axis=1) # Calculation of the sum of the proportions of the remaining categories for each sample
+            top_x_taxa['Others'] = other_taxa.values # Addition of the 'Others' line with the proportions of the 'Others' category for each sample
 
             # Plot the barplot for the current condition
             fig, ax = plt.subplots(figsize=(18, 12))
-            top_20_taxa.plot(kind='bar', stacked=True, colormap='rainbow', ax=ax, label=condition)
+            top_x_taxa.plot(kind='bar', stacked=True, colormap='rainbow', ax=ax, label=condition)
             plt.xlabel('Samples')
             plt.ylabel('Abundance')
             plt.title(f'Abundance of taxonomic category {taxo_level} for condition: {condition}')
@@ -1096,6 +1100,19 @@ def venn_diagram(database): # Function to create a Venn diagram of taxonomic ove
     sequence_index = list(database.columns).index("sequence")
     samples_columns = database.columns[sequence_index + 1:] # Sélection des colonnes correspondantes aux échantillons (après la colonne "sequence")
     
+    print("Available samples : ")
+    for sample in samples_columns:
+        print(sample)
+
+    sample_1 = input("First sample you want to analyze :")
+    sample_2 = input("Second sample you want to analyze :")
+    sample_3 = input("Third sample you want to analyze (not mandatory) :")
+
+    # New list to store wanted samples
+    selected_samples = [sample_1, sample_2]
+    if sample_3:
+        selected_samples.append(sample_3)
+    
     taxo_level = input("What taxonomic level do you want ? \nFor assignment with PR2 : Domain;Supergroup;Division;Subdivision;Class;Order;Family;Genus;Species \nFor assignment with Silva : Kingdom;Phylum;Class;Order;Family;Genus \nNumber of ASV; \nYour choice : ")
     if taxo_level == 'ASV':
         taxo_level="ASVNumber"
@@ -1104,14 +1121,10 @@ def venn_diagram(database): # Function to create a Venn diagram of taxonomic ove
     taxo_samples = [set(database[database[colonne].notna() & (database[colonne] > 0)][taxo_level]) for colonne in samples_columns]
     
     # Choose the appropriate Venn diagram based on the number of samples
-    if len(samples_columns) == 2:
-        venn2(taxo_samples, (samples_columns[0], samples_columns[1]))
-    elif len(samples_columns) == 3:
-        venn3(taxo_samples, (samples_columns[0], samples_columns[1], samples_columns[2]))
-    #elif len(samples_columns) > 3:
-        #upset
+    if not sample_3:
+        venn2(taxo_samples, (selected_samples[0], selected_samples[1]))
     else:
-        print("Number of samples not currently supported.")
+        venn3(taxo_samples, (selected_samples[0], selected_samples[1], selected_samples[2]))
     
     if taxo_level == 'ASV':
         plt.title(f'Venn diagram of ASV in samples')
@@ -1162,6 +1175,9 @@ def composition_diagram(database):  # Function to create a composition diagram s
     
 def network(asv_taxo): # Function to create a network graph based on taxonomic similarity
         taxo_level = input("What taxonomic level do you want ? \nFor assignment with PR2 : Domain;Supergroup;Division;Subdivision;Class;Order;Family;Genus;Species \nFor assignment with Silva : Kingdom;Phylum;Class;Order;Family;Genus \nYour choice : ")
+    
+        # Filter out rows where the taxonomic level is empty (NA)
+        filtered_asv_taxo = asv_taxo[(asv_taxo[taxo_level] != 'NA') & (asv_taxo[taxo_level].notna()) & (asv_taxo[taxo_level] != '')]
         G = nx.Graph() # Undirected graph
        
         # Add nodes corresponding to ASV numbers
