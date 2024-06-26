@@ -5,14 +5,15 @@ read multiple_analysis
 
 # Define parameters
 base_dir=$1
-type_data=$2
-type_database=$3
-forward_primer=$4
-reverse_primer=$5
+output_dir=$2
+type_data=$3
+type_database=$4
+forward_primer=$5
+reverse_primer=$6
 # Just for 16S or 18S
-amplicon_length_variable=$6 # taille amplicon variable ? "Yes" or "No" expected
+amplicon_length_variable=$7 # taille amplicon variable ? "Yes" or "No" expected
 # Just for 16S or 18S non variable
-amplicon_length=$7
+amplicon_length=$8
 
 # Parameters for figaro
 figaro="/Users/ambre/figaro/figaro/"
@@ -36,7 +37,6 @@ answer_primer=()
 for sub_dir in "$base_dir"/*/
 do
     fastq_dir=$(readlink -f "$sub_dir/fastq")
-    output_path=$(readlink -f $sub_dir)
     
     echo $sub_dir
     echo $fastq_dir
@@ -76,16 +76,16 @@ do
             total_sum_length=$((total_sum_length + sum_length))
             total_number_seq=$((total_number_seq + number_seq))
         
-            echo "Number of sequences in the file $file : $number_seq" >> "$output_path/output_parameters.txt"
+            echo "Number of sequences in the file $file : $number_seq" >> "$output_dir/output_parameters.txt"
             echo "Average length of sequences in the file $file : $mean"
-            echo "Average length of sequences in the file $file : $mean" >> "$output_path/output_parameters.txt"
+            echo "Average length of sequences in the file $file : $mean" >> "$output_dir/output_parameters.txt"
         done
         
         total_mean=$((total_sum_length / total_number_seq))
 
         echo "Total average length of sequences in all files : $total_mean"
 
-        echo "Length at which the sequences was cut : $total_mean" >> "$output_path/output_parameters.txt"
+        echo "Length at which the sequences was cut : $total_mean" >> "$output_dir/output_parameters.txt"
 
         for file in $fastq_dir/*.fastq.gz
         do
@@ -139,7 +139,7 @@ do
 
             cutadapt -g $forward_primer -G $reverse_primer -o "$output_R1" -p "$output_R2" "$file_R1" "$file_R2"
         done
-        echo "Primers were removed with cutadapt. " >> "$output_path/output_parameters.txt"
+        echo "Primers were removed with cutadapt. " >> "$output_dir/output_parameters.txt"
     fi
 done
 
@@ -149,35 +149,20 @@ if [[ $multiple_analysis == "No" ]]
 then
     if [[ $type_data == "16S" || $type_data == "18S" ]]
     then
-        if [[ $primer_removed == "Yes" ]]
+        if [[ $amplicon_length_variable == "No" ]]
         then
-            if [[ $amplicon_length_variable == "No" ]]
-            then
-                echo "Command line used : $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -f $base_dir -t $type_data -o $output_path --type_database $type_database -j $figaro_dir -p $primer_removed --figaro $figaro_update -l $amplicon_length_variable -a $amplicon_length --primer_forward $forward_primer --primer_reverse $reverse_primer" >> "$output_path/output_parameters.txt"
-                $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_ITS.R -f $base_dir -t $type_data -o $output_path --type_database $type_database -j $figaro_dir -p $primer_removed --figaro $figaro_update -l $amplicon_length_variable -a $amplicon_length --primer_forward $forward_primer --primer_reverse $reverse_primer
+            echo "Command line used : $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -f $base_dir -t $type_data -o $output_dir --type_database $type_database -j $figaro_dir -p $primer_removed --figaro $figaro_update -l $amplicon_length_variable -a $amplicon_length --primer_forward $forward_primer --primer_reverse $reverse_primer" >> "$output_dir/output_parameters.txt"
+            $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -f $base_dir -t $type_data -o $output_dir --type_database $type_database -j $figaro_dir -p $primer_removed --figaro $figaro_update -l $amplicon_length_variable -a $amplicon_length --primer_forward $forward_primer --primer_reverse $reverse_primer
                 
-            elif [[ $amplicon_length_variable == "Yes" ]]
-            then
-                echo " Command line used : $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -f $base_dir -t $type_data -o $output_path --type_database $type_database -p $primer_removed -l $amplicon_length_variable --primer_forward $forward_primer --primer_reverse $reverse_primer" >> "$output_path/output_parameters.txt"
-                $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -f $base_dir -t $type_data -o $output_path --type_database $type_database -p $primer_removed -l $amplicon_length_variable --primer_forward $forward_primer --primer_reverse $reverse_primer
-            fi
-        elif [[ $primer_removed == "No" ]]
+        elif [[ $amplicon_length_variable == "Yes" ]]
         then
-            if [[ $amplicon_length_variable == "No" ]]
-            then
-                echo "Command line used : $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -f $base_dir -t $type_data -o $output_path --type_database $type_database -j $figaro_dir -p $primer_removed --figaro $figaro_update -l $amplicon_length_variable -a $amplicon_length --primer_forward $forward_primer --primer_reverse $reverse_primer" >> "$output_path/output_parameters.txt"
-                $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -f $base_dir -t $type_data -o $output_path --type_database $type_database -j $figaro_dir -p $primer_removed --figaro $figaro_update -l $amplicon_length_variable -a $amplicon_length --primer_forward $forward_primer --primer_reverse $reverse_primer
-            
-            elif [[ $amplicon_length_variable == "Yes" ]]
-            then
-                echo " Command line used : $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -f $base_dir -t $type_data -o $output_path --type_database $type_database -p $primer_removed -l $amplicon_length_variable --primer_forward $forward_primer --primer_reverse $reverse_primer" >> "$output_path/output_parameters.txt"
-                $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -f $base_dir -t $type_data -o $output_path --type_database $type_database -p $primer_removed -l $amplicon_length_variable --primer_forward $forward_primer --primer_reverse $reverse_primer
-            fi
+            echo " Command line used : $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -f $base_dir -t $type_data -o $output_dir --type_database $type_database -p $primer_removed -l $amplicon_length_variable --primer_forward $forward_primer --primer_reverse $reverse_primer" >> "$output_dir/output_parameters.txt"
+            $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -f $base_dir -t $type_data -o $output_dir --type_database $type_database -p $primer_removed -l $amplicon_length_variable --primer_forward $forward_primer --primer_reverse $reverse_primer
         fi
     elif [[ $type_data == "ITS" ]]
     then
-        echo " Command line used : $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -f $base_dir -t $type_data -o $output_path --type_database $type_database -p $primer_removed --primer_forward $forward_primer --primer_reverse $reverse_primer " >> "$output_path/output_parameters.txt"
-        $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -f $base_dir -t $type_data -o $output_path --type_database $type_database -p $primer_removed --primer_forward $forward_primer --primer_reverse $reverse_primer
+        echo " Command line used : $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -f $base_dir -t $type_data -o $output_dir --type_database $type_database -p $primer_removed --primer_forward $forward_primer --primer_reverse $reverse_primer " >> "$output_dir/output_parameters.txt"
+        $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -f $base_dir -t $type_data -o $output_dir --type_database $type_database -p $primer_removed --primer_forward $forward_primer --primer_reverse $reverse_primer
     fi
         
 elif [[ $multiple_analysis == "Yes" ]]
@@ -186,18 +171,18 @@ then
     then
         if [[ $amplicon_length_variable == "No" ]]
         then
-            echo " Command line used : $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -m $multiple_analysis -f $base_dir -t $type_data -o $base_dir --type_database $type_database -p "$(printf "%s " "${answer_primer[@]}")" -a $amplicon_length --primer_forward $forward_primer --primer_reverse $reverse_primer"
-            $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -m $multiple_analysis -f $base_dir -t $type_data -o $base_dir --type_database $type_database -p "$(printf "%s " "${answer_primer[@]}")" -a $amplicon_length --primer_forward $forward_primer --primer_reverse $reverse_primer
+            echo " Command line used : $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -m $multiple_analysis -f $base_dir -t $type_data -o $output_dir --type_database $type_database -p "$(printf "%s " "${answer_primer[@]}")" -a $amplicon_length --primer_forward $forward_primer --primer_reverse $reverse_primer" >> "$output_dir/output_parameters.txt"
+            $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -m $multiple_analysis -f $base_dir -t $type_data -o $output_dir --type_database $type_database -p "$(printf "%s " "${answer_primer[@]}")" -a $amplicon_length --primer_forward $forward_primer --primer_reverse $reverse_primer
             
         elif [[ $amplicon_length_variable == "Yes" ]]
         then
-            echo " Command line used : $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -m $multiple_analysis -f $base_dir -t $type_data -o $base_dir --type_database $type_database -p "$(printf "%s " "${answer_primer[@]}")" --primer_forward $forward_primer --primer_reverse $reverse_primer"
-            $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -m $multiple_analysis -f $base_dir -t $type_data -o $base_dir --type_database $type_database -p "$(printf "%s " "${answer_primer[@]}")" --primer_forward $forward_primer --primer_reverse $reverse_primer
+            echo " Command line used : $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -m $multiple_analysis -f $base_dir -t $type_data -o $output_dir --type_database $type_database -p "$(printf "%s " "${answer_primer[@]}")" --primer_forward $forward_primer --primer_reverse $reverse_primer" >> "$output_dir/output_parameters.txt"
+            $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -m $multiple_analysis -f $base_dir -t $type_data -o $output_dir --type_database $type_database -p "$(printf "%s " "${answer_primer[@]}")" --primer_forward $forward_primer --primer_reverse $reverse_primer
         fi
         
     elif [[ $type_data == "ITS" ]]
     then
-        echo " Command line used : $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -m $multiple_analysis -f $base_dir -t $type_data -o $base_dir --type_database $type_database -p "$(printf "%s " "${answer_primer[@]}")" --primer_forward $forward_primer --primer_reverse $reverse_primer"
-        $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -m $multiple_analysis -f $base_dir -t $type_data -o $base_dir --type_database $type_database -p "$(printf "%s " "${answer_primer[@]}")" --primer_forward $forward_primer --primer_reverse $reverse_primer
+        echo " Command line used : $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -m $multiple_analysis -f $base_dir -t $type_data -o $output_dir --type_database $type_database -p "$(printf "%s " "${answer_primer[@]}")" --primer_forward $forward_primer --primer_reverse $reverse_primer" >> "$output_dir/output_parameters.txt"
+        $rscript/Rscript $script_dada2_dir/nettoyage_metagenomique_multiple_seq.R -m $multiple_analysis -f $base_dir -t $type_data -o $output_dir --type_database $type_database -p "$(printf "%s " "${answer_primer[@]}")" --primer_forward $forward_primer --primer_reverse $reverse_primer
     fi
 fi
