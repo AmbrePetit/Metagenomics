@@ -8,7 +8,6 @@
 suppressPackageStartupMessages(library(dada2))
 suppressPackageStartupMessages(library(ShortRead))
 suppressPackageStartupMessages(library(Biostrings))
-suppressPackageStartupMessages(library(ggplot2))
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(tidyr))
 suppressPackageStartupMessages(library(tibble))
@@ -40,8 +39,6 @@ option_list <- list(
         help="path to output directory [MANDATORY]"),
     make_option("--type_database", dest="type_database", default="Silva",
         help="type of database used for taxonomic assignment"),
-    make_option(c("-j", "--json"), dest="json_file", default="None",
-        help="path to json file directory, output from Figaro"),
     make_option("--pattern_R1", dest="opt_fns_R1", default="_R1",
         help="Pattern in fastq files name to identify R1"),
     make_option("--pattern_R2", dest="opt_fns_R2", default="_R2",
@@ -59,7 +56,9 @@ option_list <- list(
         help="Forward primer used for ITS analysis"),
     make_option("--primer_reverse", dest="primer_rev",
         help="Reverse primer used for ITS analysis")
- )
+    )
+
+
 
 # get command line options, if help option encountered print help and exit,
 # otherwise if options not found on command line then set defaults,
@@ -81,7 +80,6 @@ if(opt$type_data!="16S" && opt$type_data!="18S" && opt$type_data!="ITS"){print("
 # assign all output dir variables
 # 1st check if path ends with a "/"
 if(substrRight(opt$output, 1) != '/'){opt$output <- paste(opt$output, "/", sep="")}
-if(substrRight(opt$json_file, 1) != '/'){opt$json_file <- paste(opt$json_file, "/", sep="")}
 
 # empty list to store sequence tables
 seqtab_list <- list()
@@ -90,15 +88,27 @@ seqtab_list <- list()
 #database_dir="/media/linuxipg/1.42.6-8754/Ambre/database/"
 database_dir="/Users/ambre/Desktop/Stage/database/"
 if (opt$type_data=="16S"){
-  Silva_file <- paste0(database_dir, "silva_nr99_v138.1_train_set.fa")
+    Silva_file <- paste0(database_dir, "silva_nr99_v138.1_train_set.fa")
+    db <- "Silva"
 }else if (opt$type_data=="ITS"){
-  Unite_file <- paste0(database_dir, "sh_general_release_dynamic_25.07.2023.fasta")
+    Unite_file <- paste0(database_dir, "sh_general_release_dynamic_25.07.2023.fasta")
+    db <- "Unite"
 }else if (opt$type_data=="18S"){
     if(opt$type_database == "PR2"){
-      PR2_file <- paste0(database_dir, "pr2_version_5.0.0_SSU_dada2.fasta.gz")
+        PR2_file <- paste0(database_dir, "pr2_version_5.0.0_SSU_dada2.fasta.gz")
+        db <- "PR2"
     }else{
-      Silva_file <- paste0(database_dir, "silva_nr_v138_train_set.fa")}
+        Silva_file <- paste0(database_dir, "silva_nr_v138_train_set.fa")}
+        db <- "Silva"
 }
+
+# creation results files
+dada2_dir <- paste(opt$output, "dada2/", sep="")
+dir.create(dada2_dir)
+column_names <- c("sample", "input", "filtered", "denoised", "merged", "tabled", "nonchim")
+empty_df <- data.frame(matrix(ncol = length(column_names), nrow = 0))
+colnames(empty_df) <- column_names
+write.table(empty_df, str_c(dada2_dir, "number_reads.csv"), sep = ",")
 
 ##################
 ### main
@@ -228,8 +238,7 @@ for (input_dir in subdirs) {
     print("------------Filter and trim------------")
 
     truncQ <- 2  #trunc sequences if phred quality below threshold
-    maxEE <- c(2,5) #sequences removed if score below threshold (mean of quality score per base)
-
+    
     if (opt$figaro_update == "TRUE" && (opt$amplicon_length_variable == "No" && (opt$type_data=="16S" || opt$type_data=="18S"))) {
       # Load JSON file and extract the first parameter of trimPosition
       json_file <- sort(list.files(subfiles, full.names = TRUE))
@@ -282,6 +291,7 @@ for (input_dir in subdirs) {
       print("out <- filterAndTrim(fns_R1, filt_R1, fns_R2, filt_R2, maxN=0, maxEE=c(2,5), truncQ=2, minLen = 50, rm.phix=TRUE, compress=FALSE)")
     }else if (opt$figaro_update == "FALSE" || (opt$amplicon_length_variable == "Yes" && (opt$type_data=="16S" || opt$type_data=="18S"))){
       truncLens <- c(290, 260, 240, 220)
+      maxEE <- c(2,5) #sequences removed if score below threshold (mean of quality score per base)
       best_truncLen <- NULL
       best_nb_reads <- 0
       best_result <- NULL
@@ -299,7 +309,7 @@ for (input_dir in subdirs) {
                   err_R1 <- learnErrors(filt_R1, multithread=TRUE)
                   err_R2 <- learnErrors(filt_R2, multithread=TRUE)
               
-                  # statistic analyse
+                  # statistic analysis
                   dada_R1 <- dada(filt_R1, err = err_R1, multithread = FALSE, pool = FALSE)
                   dada_R2 <- dada(filt_R2, err = err_R2, multithread = FALSE, pool = FALSE)
                   print("sapply(dada_R1, getN)")
@@ -366,13 +376,12 @@ for (input_dir in subdirs) {
     err_R1 <- learnErrors(filt_R1, multithread=TRUE)
     err_R2 <- learnErrors(filt_R2, multithread=TRUE)
 
-    # statistic analyse
+    # statistic analysis
     dada_R1 <- dada(filt_R1, err = err_R1, multithread = FALSE, pool = FALSE)
     dada_R2 <- dada(filt_R2, err = err_R2, multithread = FALSE, pool = FALSE)
 
     # merge forward and reverse
     mergers <- mergePairs(dada_R1, filt_R1, dada_R2, filt_R2, verbose = TRUE)
-
     seqtab <- makeSequenceTable(mergers)
     
     print("Number of sequences by lengths in seqtab")
@@ -387,11 +396,29 @@ for (input_dir in subdirs) {
     print(table(nchar(getSequences(seqtab))))
     }
     
-    #saveRDS/readRDS
-    # Assign seqtab to a unique variable
-    #assign(paste0("var_", k), seqtab)
-    #var_list[[k]] <- get(paste0("_var.rds", k))
-    #var_name <- c(var_name, paste0("var_", k))
+    # suppression of chimera
+    seqtab.nochim <- removeBimeraDenovo(seqtab, method = "consensus", multithread = FALSE, verbose = TRUE)
+    paste0("% of non chimeras : ", sum(seqtab.nochim)/sum(seqtab) * 100)
+    paste0("total number of sequences : ", sum(seqtab.nochim))
+    
+    # creation of csv with reads number in each sample after each step
+    getN <- function(x) sum(getUniques(x))
+    track <- cbind(out, sapply(dada_R1, getN), sapply(mergers, getN), rowSums(seqtab), rowSums(seqtab.nochim))
+    colnames(track) <- c("input", "filtered", "denoised", "merged", "tabled", "nonchim")
+    rownames(track) <- sample.names
+    print(track)
+    write.table(track, str_c(dada2_dir, "number_reads.csv"), append = TRUE, sep = ",", col.names = FALSE)
+    
+    # creation output file with parameters
+    print("output file with parameters")
+    fichier_temp <- paste(opt$output, "output_parameters.txt", sep="")
+    contenu <- readLines(fichier_temp)
+    if(opt$type_data == "ITS"){
+        contenu <- c(contenu, paste("\nInformations for sequencing output ", k, " : \n"), paste("Different sequencing outputs to analyze together ? ", opt$mult_ana, "\n"), paste("Type of data for analysis : ", opt$type_data, "\n"), paste("Database used : ", opt$type_database, "\n"), paste("Primers used : \n Forward primer = ", opt$primer_fwd, "\n Reverse primer = ", opt$primer_rev), paste("Primer were already been removed ? ", primer_vector[k], "\n"))
+    }else{
+        contenu <- c(contenu, paste("\nInformations for sequencing output ", k, " : \n"), paste("Different sequencing outputs to analyze together ? ", opt$mult_ana, "\n"), paste("truncLen : ", best_truncLen, "\n"), paste("maxEE :", maxEE, "\n"), paste("Type of data for analysis : ", opt$type_data, "\n"), paste("Database used : ", opt$type_database, "\n"), paste("Primers used : \n Forward primer = ", opt$primer_fwd, "\n Reverse primer = ", opt$primer_rev), paste("Primer were already been removed ? ", primer_vector[k]))
+    }
+    writeLines(contenu, paste0(opt$output, "output_parameters.txt"))
     
     if (opt$mult_ana == "Yes"){
         # Save seqtab in a format which keep all informations
@@ -403,43 +430,18 @@ for (input_dir in subdirs) {
 
 if (opt$mult_ana == "Yes"){
     for (l in 1:(k-1)){
-        #var_name <- paste0("seqtab", l)
-        #print(var_name)
-        #assign(var_name, readRDS(file = paste0(l, "_seqtab.rds")))
         var_list[[l]] <- readRDS(file = paste0(l, "_seqtab.rds"))
     }
     
     print("var_list")
     print(var_list)
-    
-    #save(data1, data2, file = "data.RData")
-    #seqtab1 <- readRDS("1_seqtab.rds")
-    #seqtab2 <- readRDS("2_seqtab.rds")
   
     # Once the analysis for each input directory is complete, merge the sequence tables together
-    #seqtab <- mergeSequenceTables(seqtab1, seqtab2)
-    seqtab <- do.call(mergeSequenceTables, var_list)
+    seqtab.nochim <- do.call(mergeSequenceTables, var_list)
     print("merged seqtab")
-    print(seqtab)
+    print(seqtab.nochim)
 
 }
-
-# suppression of chimera
-seqtab.nochim <- removeBimeraDenovo(seqtab, method = "consensus", multithread = FALSE, verbose = TRUE)
-paste0("% of non chimeras : ", sum(seqtab.nochim)/sum(seqtab) * 100)
-paste0("total number of sequences : ", sum(seqtab.nochim))
-
-
-# creation results files
-dada2_dir <- paste(opt$output, "dada2/", sep="")
-dir.create(dada2_dir)
-
-# creation of csv with reads number in each sample after each step
-getN <- function(x) sum(getUniques(x))
-track <- cbind(out, sapply(dada_R1, getN), sapply(mergers, getN), rowSums(seqtab), rowSums(seqtab.nochim))
-colnames(track) <- c("input", "filtered", "denoised", "merged", "tabled", "nonchim")
-rownames(track) <- sample.names
-write_csv(data.frame(track), str_c(dada2_dir, "number_reads.csv"))
 
 # change the name of the sequences to store them in the taxonomy table
 seqtab.nochim_trans <- as.data.frame(t(seqtab.nochim)) %>% rownames_to_column(var = "sequence") %>% 
@@ -456,20 +458,16 @@ Biostrings::writeXStringSet(seq_out, str_c(dada2_dir, "asv_no_taxo.fasta"), comp
 # assignation of the taxonomy with the right database according to --type
 if(opt$type_data == "16S"){
         print("-------Assignation 16S----------")
-        db <- "Silva"
         taxa <- assignTaxonomy(seqtab.nochim, refFasta = Silva_file, minBoot = 50, outputBootstraps = TRUE, verbose = TRUE, tryRC = TRUE)
 }else if(opt$type_data == "ITS"){
         print("-------Assignation ITS----------")
-        db <- "Unite"
         taxa <- assignTaxonomy(seqtab.nochim, refFasta = Unite_file, minBoot = 50, outputBootstraps = TRUE, verbose = TRUE, tryRC = TRUE)
 }else if(opt$type_data == "18S"){
         print("--------Assignation 18S---------")
         if(opt$type_database == "PR2"){
           PR2_tax_levels <- c("Domain", "Supergroup", "Division", "Subdivision", "Class", "Order", "Family", "Genus", "Species")
-          db <- "PR2"
           taxa <- assignTaxonomy(seqtab.nochim, refFasta = PR2_file, taxLevels = PR2_tax_levels, minBoot = 50, outputBootstraps = TRUE, verbose = TRUE, tryRC = TRUE)}
         else{
-          db <- "Silva"
           taxa <- assignTaxonomy(seqtab.nochim, refFasta = Silva_file, minBoot = 50, outputBootstraps = TRUE, verbose = TRUE, tryRC = TRUE)}
         }
 print("------End assignation-----")
