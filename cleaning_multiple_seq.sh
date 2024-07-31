@@ -16,13 +16,13 @@ amplicon_length_variable=$9 #are amplicon lengths variable ? "Yes" or "No" expec
 amplicon_length=${10} #expected amplicon length
 
 # Parameters for figaro
-figaro="/media/linuxipg/1.42.6-8754/Isaure/figaro/figaro"
+figaro="/Users/ambre/figaro/figaro/"
 forward_primer_length=${#forward_primer}
 reverse_primer_length=${#reverse_primer}
 
 # Parameters for R script to clean data with DADA2
-rscript="/usr/bin"
-script_dada2_dir="/media/linuxipg/1.42.6-8754/Ambre/Script"
+rscript="/usr/local/bin"
+script_dada2_dir="/Users/ambre/Desktop/MASTER/M2/Stage/Script_nettoyage"
 
 # Add informations about the run in the file
 echo "Different sequencing outputs to analyze together ? $multiple_analysis " > "$output_dir/output_parameters.txt"

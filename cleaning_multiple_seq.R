@@ -84,9 +84,9 @@ if(substrRight(opt$output, 1) != '/'){opt$output <- paste(opt$output, "/", sep="
 seqtab_list <- list()
 
 # databases
-database_dir="/home/linuxipg/Isaure/Databases/"
+database_dir="/Users/ambre/Desktop/MASTER/M2/Stage/database/"
 if (opt$type_data=="16S"){
-  Silva_file <- paste0(database_dir, "silva_nr99_v138.1_train_set.fa.gz")
+  Silva_file <- paste0(database_dir, "silva_nr99_v138.1_train_set.fa")
   db <- "Silva"
 }else if (opt$type_data=="ITS"){
   Unite_file <- paste0(database_dir, "sh_general_release_dynamic_25.07.2023.fasta")
@@ -96,7 +96,7 @@ if (opt$type_data=="16S"){
       PR2_file <- paste0(database_dir, "pr2_version_5.0.0_SSU_dada2.fasta.gz")
       db <- "PR2"
     }else{
-      Silva_file <- paste0(database_dir, "silva_132.18s.99_rep_set.dada2.fa.gz")
+      Silva_file <- paste0(database_dir, "silva_nr_v132_train_set.fa")
       db <- "Silva"
     }
 }
@@ -190,7 +190,7 @@ for (input_dir in subdirs) {
         print(REV.ReverseReads)
         
         print("cutadapt")
-        cutadapt <- "/usr/bin/cutadapt"
+        cutadapt <- "/usr/local/bin/cutadapt"
         system2(cutadapt, args = "--version")
         path.cut <- file.path(input_dir, "cutadapt")
         if(!dir.exists(path.cut)) dir.create(path.cut)
